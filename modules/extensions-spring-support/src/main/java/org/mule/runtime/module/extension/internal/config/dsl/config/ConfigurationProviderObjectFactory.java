@@ -7,11 +7,9 @@
 package org.mule.runtime.module.extension.internal.config.dsl.config;
 
 import static java.lang.Thread.currentThread;
-import static java.util.Optional.empty;
 import static java.util.Optional.ofNullable;
 import static org.mule.runtime.module.extension.internal.runtime.config.ConfigurationCreationUtils.createConfigurationProvider;
 
-import org.mule.runtime.api.dsl.DslResolvingContext;
 import org.mule.runtime.api.exception.MuleException;
 import org.mule.runtime.api.meta.model.ExtensionModel;
 import org.mule.runtime.api.meta.model.config.ConfigurationModel;
@@ -31,9 +29,9 @@ import org.mule.runtime.module.extension.internal.runtime.config.DefaultConfigur
 import org.mule.runtime.module.extension.internal.runtime.exception.RequiredParameterNotSetException;
 import org.mule.runtime.module.extension.internal.runtime.resolver.ConnectionProviderResolver;
 import org.mule.runtime.module.extension.internal.runtime.resolver.ConnectionProviderValueResolver;
+import org.mule.runtime.module.extension.internal.runtime.resolver.ImplicitConnectionProviderValueResolver;
+import org.mule.runtime.module.extension.internal.runtime.resolver.StaticConnectionProviderResolver;
 import org.mule.runtime.module.extension.internal.runtime.resolver.ValueResolver;
-
-import java.util.Optional;
 
 import javax.inject.Inject;
 
@@ -53,8 +51,9 @@ class ConfigurationProviderObjectFactory extends AbstractExtensionObjectFactory<
   private ExtensionManager extensionManager;
 
   private ExpirationPolicy expirationPolicy;
-  private Optional<ConnectionProviderValueResolver> connectionProviderResolver = empty();
+  private ConnectionProviderValueResolver connectionProviderResolver;
   private ConfigurationProvider instance;
+  private boolean requiresConnection = false;
   private LazyValue<String> configName = new LazyValue<>(this::getName);
 
   private LazyValue<DslSyntaxResolver> dslSyntaxResolver;
@@ -65,8 +64,8 @@ class ConfigurationProviderObjectFactory extends AbstractExtensionObjectFactory<
     super(muleContext);
     this.extensionModel = extensionModel;
     this.configurationModel = configurationModel;
-    dslSyntaxResolver = new LazyValue<>(() -> DslSyntaxResolver
-        .getDefault(extensionModel, DslResolvingContext.getDefault(extensionManager.getExtensions())));
+    // dslSyntaxResolver = new LazyValue<>(() -> DslSyntaxResolver
+    // .getDefault(extensionModel, DslResolvingContext.getDefault(extensionManager.getExtensions())));
   }
 
   @Override
@@ -84,7 +83,7 @@ class ConfigurationProviderObjectFactory extends AbstractExtensionObjectFactory<
                                        configName.get(),
                                        parameters,
                                        ofNullable(expirationPolicy),
-                                       connectionProviderResolver,
+                                       getConnectionProviderResolver(),
                                        configurationProviderFactory,
                                        expressionManager,
                                        reflectionCache,
@@ -97,6 +96,19 @@ class ConfigurationProviderObjectFactory extends AbstractExtensionObjectFactory<
   private ClassLoader getExtensionClassLoader() {
     return extensionModel.getModelProperty(ClassLoaderModelProperty.class).map(ClassLoaderModelProperty::getClassLoader)
         .orElse(currentThread().getContextClassLoader());
+  }
+
+  private ConnectionProviderValueResolver getConnectionProviderResolver() {
+    if (connectionProviderResolver != null) {
+      return connectionProviderResolver;
+    } else {
+      if (requiresConnection) {
+        return new ImplicitConnectionProviderValueResolver(getName(), extensionModel, configurationModel, reflectionCache,
+                                                           expressionManager, muleContext);
+      } else {
+        return new StaticConnectionProviderResolver(null, null);
+      }
+    }
   }
 
   private String getName() {
@@ -119,6 +131,10 @@ class ConfigurationProviderObjectFactory extends AbstractExtensionObjectFactory<
   }
 
   public void setConnectionProviderResolver(ConnectionProviderResolver connectionProviderResolver) {
-    this.connectionProviderResolver = ofNullable(connectionProviderResolver);
+    this.connectionProviderResolver = connectionProviderResolver;
+  }
+
+  public void setRequiresConnection(boolean requiresConnection) {
+    this.requiresConnection = requiresConnection;
   }
 }
