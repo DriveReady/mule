@@ -10,6 +10,7 @@ import static java.lang.Thread.currentThread;
 import static java.util.Optional.ofNullable;
 import static org.mule.runtime.module.extension.internal.runtime.config.ConfigurationCreationUtils.createConfigurationProvider;
 
+import org.mule.runtime.api.dsl.DslResolvingContext;
 import org.mule.runtime.api.exception.MuleException;
 import org.mule.runtime.api.meta.model.ExtensionModel;
 import org.mule.runtime.api.meta.model.config.ConfigurationModel;
@@ -33,8 +34,6 @@ import org.mule.runtime.module.extension.internal.runtime.resolver.ImplicitConne
 import org.mule.runtime.module.extension.internal.runtime.resolver.StaticConnectionProviderResolver;
 import org.mule.runtime.module.extension.internal.runtime.resolver.ValueResolver;
 
-import javax.inject.Inject;
-
 /**
  * A {@link AbstractExtensionObjectFactory} which produces {@link ConfigurationProvider} instances
  *
@@ -47,7 +46,6 @@ class ConfigurationProviderObjectFactory extends AbstractExtensionObjectFactory<
   private final ConfigurationModel configurationModel;
   private final ConfigurationProviderFactory configurationProviderFactory = new DefaultConfigurationProviderFactory();
 
-  @Inject
   private ExtensionManager extensionManager;
 
   private ExpirationPolicy expirationPolicy;
@@ -64,8 +62,8 @@ class ConfigurationProviderObjectFactory extends AbstractExtensionObjectFactory<
     super(muleContext);
     this.extensionModel = extensionModel;
     this.configurationModel = configurationModel;
-    // dslSyntaxResolver = new LazyValue<>(() -> DslSyntaxResolver
-    // .getDefault(extensionModel, DslResolvingContext.getDefault(extensionManager.getExtensions())));
+     dslSyntaxResolver = new LazyValue<>(() -> DslSyntaxResolver.getDefault(extensionModel,
+         DslResolvingContext.getDefault(extensionManager.getExtensions())));
   }
 
   @Override
@@ -136,5 +134,9 @@ class ConfigurationProviderObjectFactory extends AbstractExtensionObjectFactory<
 
   public void setRequiresConnection(boolean requiresConnection) {
     this.requiresConnection = requiresConnection;
+  }
+
+  public void setExtensionManager(ExtensionManager extensionManager) {
+    this.extensionManager = extensionManager;
   }
 }
